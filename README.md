@@ -14,3 +14,15 @@ Rum's mountain ridges, Eigg's long pitchstone ridge, Muck's low pasture, Canna's
 Serve the directory with a static server. `npm test` checks the deterministic fields, finite sampled heights, surrounding seabed and distinct relief. Real-browser scene checks and art qualification are separate gates.
 
 The latest browser gate checks all five islands in four directions at 390px reduced motion and 1365px normal preference, keyboard yaw/pitch, pointer look, dry cameras, 44px targets, bounds, held pixel identity and explicit weather start/stop. These are functional checks, not art acceptance or a device performance certificate.
+
+## Regenerating the elevation arrays
+
+The checked-in `dem-data.js` is sufficient to serve the app. To regenerate it, use Python with NumPy and Pillow:
+
+```sh
+python3 scripts/acquire-dem.py
+python3 scripts/encode-dem.py
+npm test
+```
+
+`SCOTTISH_DEM_CACHE` can override the default `/tmp/scottish-dem` cache. Acquisition creates the directory, caches the source tiles and writes intermediate arrays. It uses public source tiles and makes no authenticated requests. Source service responses can change; `data/terrain-tiles.json` records the original URLs used for this candidate, not a claim of byte-identical future provider content. Regenerated output must be reviewed before committing.
