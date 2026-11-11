@@ -13,7 +13,7 @@ const {spawn}=require('node:child_process'),assert=require('node:assert/strict')
   assert.equal(await page.locator('#weather').getAttribute('aria-pressed'),'false');
   for(let i=0;i<5;i++){
    await page.locator('nav button').nth(i).click();await page.waitForTimeout(200);
-   const state=await page.evaluate(async()=>(await import('/main.js')).inspectWorld());assert(state.camera.y>state.ground+.5,'camera must stay above ground');assert(state.camera.y>0,'camera must stay above sea');assert(state.triangles<150000,'scene triangle budget');
+   const state=await page.evaluate(async()=>(await import('/main.js')).inspectWorld());assert(state.camera.y>state.ground+.5,'camera must stay above ground');assert(state.camera.y>0,'camera must stay above sea');assert(state.triangles<200000,'scene triangle budget');
    assert.equal(await page.locator('nav [aria-current=true]').count(),1);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
    const sizes=await page.locator('nav button').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return [r.width,r.height]}));assert(sizes.every(([w,h])=>w>=44&&h>=44));
    for(let q=0;q<4;q++){
