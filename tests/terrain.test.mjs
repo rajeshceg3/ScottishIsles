@@ -1,0 +1,3 @@
+import{heightAt,ISLANDS}from'../terrain.js';import test from'node:test';import assert from'node:assert/strict';
+test('all five terrain fields are finite and end below the sea',()=>{for(let id=0;id<5;id++){for(let x=-200;x<=200;x+=4)for(let z=-200;z<=200;z+=4)assert(Number.isFinite(heightAt(id,x,z)));assert(heightAt(id,300,300)<0)}});
+test('islands have distinct relief, rather than palette swaps',()=>{const fields=ISLANDS.map((_,id)=>Array.from({length:21},(_,i)=>heightAt(id,i*10-100,-10)));assert.equal(new Set(fields.map(JSON.stringify)).size,5);assert(Math.max(...fields[0])>Math.max(...fields[2])*3);assert(Math.max(...fields[4])<12)});
