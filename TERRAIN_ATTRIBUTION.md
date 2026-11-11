@@ -44,3 +44,11 @@ Surface colour and normal detail use adapted CC0 assets from Poly Haven, not pho
 - Asset license: https://polyhaven.com/license
 
 The maps were resized to 512 pixels, converted to WebP, tinted, blended by terrain slope and faded with viewing distance. Source URLs and original checksums are in `textures/sources.json`. The app serves these files locally and does not call the Poly Haven API. These material photographs are not represented as photographs taken on the Scottish Isles.
+
+## Artistic landmark interpretation
+
+The composite terrain generalizes Eigg's narrow Sgurr ridge. `landmarks.js` adds a localized artistic ridge above that base, informed by NatureScot's description of its steep-sided dark peak and long ridge and by the Scottish Geology Trust's description and reference image of the Nose. The top uses the published 393 m summit as an artistic anchor with the scene's existing 1.8x exaggeration, not a new measured elevation. Its length, width, cross-section and local placement are approximate design choices, not surveyed geometry. The base samples in `dem-data.js` remain unchanged. Muck's small dry-stone field boundary is also an artistic addition, reflecting the island's farmed character, not a reconstruction of any named wall or field. No reference photograph is redistributed.
+
+- https://www.nature.scot/sites/default/files/national-scenic-area/9154/nsa-special-qualities.pdf
+- https://geoguide.scottishgeologytrust.org/p/gcr04/gcr04_chapter3thesmallisles
+- https://en.wikipedia.org/wiki/An_Sg%C3%B9rr_(Eigg)

@@ -26,3 +26,7 @@ npm test
 ```
 
 `SCOTTISH_DEM_CACHE` can override the default `/tmp/scottish-dem` cache. Acquisition creates the directory, caches the source tiles and writes intermediate arrays. It uses public source tiles and makes no authenticated requests. Source service responses can change; `data/terrain-tiles.json` records the original URLs used for this candidate, not a claim of byte-identical future provider content. Regenerated output must be reviewed before committing.
+
+## Artistic additions are separate from source elevations
+
+Eigg's narrow Sgurr ridge is locally interpreted in `landmarks.js`, rather than left smoothed away by the composite data. Its profile and Muck's field wall are artistic additions, not survey data or a reconstructed actual field. See the attribution document for source references and precise limits. The checked-in raw arrays remain unchanged. `measuredHeightAt` reads the scaled source; `heightAt` includes the artistic ridge.
