@@ -9,8 +9,8 @@ landMat.onBeforeCompile=shader=>{
  shader.fragmentShader='varying vec3 moorP;\nfloat grain(vec3 p){return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453); }\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
  float grit=grain(floor(moorP*18.0));
  float moorPatch=sin(moorP.x*.38+sin(moorP.z*.2))*sin(moorP.z*.44);
- float seams=pow(.5+.5*sin(moorP.y*2.4+sin(moorP.x*.37)*2.0+sin(moorP.z*.23)*3.0),12.0);
- diffuseColor.rgb*=.94+grit*.055+moorPatch*.055-seams*.07;
+ float seams=pow(.5+.5*sin(moorP.y*2.4+sin(moorP.x*.37)*2.0+sin(moorP.z*.23)*3.0),20.0);
+ diffuseColor.rgb*=.94+grit*.055+moorPatch*.055-seams*.025;
  `);
 };
 function select(id){island=id;if(terrain){terrain.geometry.dispose();scene.remove(terrain)}if(props){props.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose()});scene.remove(props)}const geo=new T.PlaneGeometry(400,400,180,180);geo.rotateX(-Math.PI/2);const p=geo.attributes.position,colors=[];for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i);p.setY(i,heightAt(id,x,z))}geo.computeVertexNormals();const n=geo.attributes.normal;
@@ -24,9 +24,22 @@ for(let i=0;i<p.count;i++){const y=p.getY(i),slope=1-n.getY(i),x=p.getX(i),z=p.g
  const grass=new T.InstancedMesh(blade,new T.MeshStandardMaterial({color:'#758168',roughness:1,side:T.DoubleSide}),3500);
  for(let j=0;j<3500;j++){const a=rnd()*6.28,r=Math.sqrt(rnd())*35,x=points[0]+Math.cos(a)*r,z=points[1]+Math.sin(a)*r,h=heightAt(id,x,z);dummy.position.set(x,h-.03,z);dummy.rotation.set(0,rnd()*6.28,0);const scale=.4+rnd()*.9;dummy.scale.setScalar(h>.3?scale:0);dummy.updateMatrix();grass.setMatrixAt(j,dummy.matrix)}grass.computeBoundingSphere();props.add(grass);
  angle=0;pitch=-.04;document.getElementById('name').textContent=ISLANDS[id];document.querySelectorAll('nav button').forEach((b,i)=>b.setAttribute('aria-current',String(i===id)));}
-ISLANDS.forEach((name,id)=>{const b=document.createElement('button');b.textContent=name;b.onclick=()=>select(id);document.querySelector('nav').append(b)});
+function coastPath(id){const points=[];for(let j=0;j<72;j++){const a=j/72*Math.PI*2;let lo=0,hi=170;for(let n=0;n<13;n++){const r=(lo+hi)/2;if(heightAt(id,Math.cos(a)*r,Math.sin(a)*r)>0)lo=r;else hi=r;}points.push([Math.cos(a)*lo,Math.sin(a)*lo]);}return 'M'+points.map(([x,z])=>`${(82+x*.48).toFixed(1)},${(53+z*.48).toFixed(1)}`).join('L')+'Z';}
+ISLANDS.forEach((name,id)=>{const b=document.createElement('button');b.setAttribute('aria-label',name);b.innerHTML=`<svg viewBox="0 0 164 106" aria-hidden="true"><path class="coast" d="${coastPath(id)}"/><path class="contour" d="${coastPath(id)}" transform="translate(82 53) scale(.68) translate(-82 -53)"/></svg><span>${name}</span>`;b.onclick=()=>select(id);document.querySelector('nav').append(b)});
 const seaU={time:{value:0}},sea=new T.Mesh(new T.PlaneGeometry(2200,2200),new T.ShaderMaterial({uniforms:seaU,vertexShader:'varying vec3 w;void main(){w=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec3 w;uniform float time;void main(){float a=sin(w.x*.6+w.y*.12+time)*sin(w.y*.7-time*.4);vec3 c=mix(vec3(.18,.27,.27),vec3(.35,.43,.4),a*.12+.55);gl_FragColor=vec4(c,1.);#include <colorspace_fragment>} '.replace('#include','\n#include').replace('>}','>\n}')}));sea.rotation.x=-Math.PI/2;sea.position.y=-.12;scene.add(sea);
-const rainP=[];for(let i=0;i<900;i++)rainP.push(Math.random()*260-130,Math.random()*65+3,Math.random()*260-100);const rainGeo=new T.BufferGeometry();rainGeo.setAttribute('position',new T.Float32BufferAttribute(rainP,3));const rain=new T.Points(rainGeo,new T.PointsMaterial({color:'#d8e0d9',size:.14,transparent:true,opacity:.35,depthWrite:false}));scene.add(rain);
+// Short slanted rain streaks, held exactly still until weather is enabled.
+const rainP=[];for(let i=0;i<720;i++){const x=Math.random()*300-150,y=Math.random()*80+4,z=Math.random()*280-50;rainP.push(x,y,z,x-.18,y+.8,z+.06)}
+const rainGeo=new T.BufferGeometry();rainGeo.setAttribute('position',new T.Float32BufferAttribute(rainP,3));const rain=new T.LineSegments(rainGeo,new T.LineBasicMaterial({color:'#dce0d8',transparent:true,opacity:.22,depthWrite:false}));scene.add(rain);
+// A broad ceiling of broken grey cloud, rather than a flat background color.
+const skyU={time:{value:0}};
+const sky=new T.Mesh(new T.SphereGeometry(800,32,16),new T.ShaderMaterial({side:T.BackSide,depthWrite:false,fog:false,uniforms:skyU,
+vertexShader:'varying vec3 skyD;void main(){skyD=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+fragmentShader:`varying vec3 skyD;uniform float time;
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
+void main(){vec3 d=normalize(skyD);float h=max(0.,d.y);vec2 p=d.xz/(h+.22)*2.0+vec2(time*.006,0);float n=noise(p)*.55+noise(p*2.1)*.28+noise(p*4.3)*.12;vec3 c=mix(vec3(.66,.71,.68),vec3(.39,.46,.46),pow(h,.55));c-=smoothstep(.3,.7,n)*(.10+min(h,.4)*.14);gl_FragColor=vec4(c,1.);
+#include <colorspace_fragment>
+}` }));scene.add(sky);
 canvas.onpointerdown=e=>{down=[e.clientX,e.clientY];canvas.setPointerCapture(e.pointerId)};canvas.onpointermove=e=>{if(!down)return;angle-=(e.clientX-down[0])*.004;pitch=T.MathUtils.clamp(pitch+(e.clientY-down[1])*.003,-.4,.3);down=[e.clientX,e.clientY]};canvas.onpointerup=canvas.onpointercancel=()=>down=null;canvas.onkeydown=e=>{if(e.key==='ArrowLeft')angle+=.15;else if(e.key==='ArrowRight')angle-=.15;else return;e.preventDefault()};document.getElementById('weather').onclick=()=>{moving=!moving;const b=document.getElementById('weather');b.setAttribute('aria-pressed',String(moving));b.textContent=moving?'Hold the weather':'Let the weather move'};
 function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();select(0);
-function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.1);last=now;if(document.hidden)return;if(moving){time+=dt;const p=rainGeo.attributes.position;for(let i=0;i<p.count;i++){p.setY(i,p.getY(i)-dt*18);if(p.getY(i)<0)p.setY(i,65)}p.needsUpdate=true;}seaU.time.value=time;camera.rotation.order='YXZ';camera.rotation.set(pitch,angle,0);camera.lookAt(camera.position.x+Math.sin(angle)*120,camera.position.y+Math.sin(pitch)*120,camera.position.z-Math.cos(angle)*120);renderer.render(scene,camera)}requestAnimationFrame(frame);
+function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.1);last=now;if(document.hidden)return;if(moving){time+=dt;const p=rainGeo.attributes.position;for(let i=0;i<p.count;i+=2){const y=p.getY(i)-dt*18,reset=y<0?80:y;p.setY(i,reset);p.setY(i+1,reset+.8);}p.needsUpdate=true;}seaU.time.value=time;skyU.time.value=time;sky.position.copy(camera.position);camera.rotation.order='YXZ';camera.rotation.set(pitch,angle,0);camera.lookAt(camera.position.x+Math.sin(angle)*120,camera.position.y+Math.sin(pitch)*120,camera.position.z-Math.cos(angle)*120);renderer.render(scene,camera)}requestAnimationFrame(frame);
