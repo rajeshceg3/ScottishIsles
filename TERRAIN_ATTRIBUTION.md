@@ -34,3 +34,13 @@ Source-specific licensing details are recorded in the Mapzen attribution page ab
 - Canna and regional context: https://en.wikivoyage.org/wiki/Small_Isles
 
 These links guided crop placement only. No source photographs or prose are redistributed.
+
+## Surface materials
+
+Surface colour and normal detail use adapted CC0 assets from Poly Haven, not photographs of these islands:
+
+- Aerial Grass Rock, Rob Tuytel: https://polyhaven.com/a/aerial_grass_rock
+- Rocky Terrain, Amal Kumar: https://polyhaven.com/a/rocky_terrain
+- Asset license: https://polyhaven.com/license
+
+The maps were resized to 512 pixels, converted to WebP, tinted, blended by terrain slope and faded with viewing distance. Source URLs and original checksums are in `textures/sources.json`. The app serves these files locally and does not call the Poly Haven API. These material photographs are not represented as photographs taken on the Scottish Isles.

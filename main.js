@@ -3,11 +3,15 @@ const groundAt=(id,x,z)=>meshHeightAt(id,x,z,heightAt,240,worldSize(id));
 const canvas=document.querySelector('canvas'),renderer=new T.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
 const scene=new T.Scene();scene.background=new T.Color('#a5b3ae');scene.fog=new T.FogExp2('#a5b3ae',.000045);const camera=new T.PerspectiveCamera(60,innerWidth/innerHeight,.1,45000);camera.position.set(0,12,140);const hemi=new T.HemisphereLight('#d8e5df','#4a5141',2.1);scene.add(hemi);const sun=new T.DirectionalLight('#dae0cf',.9);sun.position.set(-80,110,70);scene.add(sun);
 let dirty=true,terrain,props,island=0,angle=0,pitch=-.08,moving=false,down=null,time=0,last=performance.now();
-const landMat=new T.MeshStandardMaterial({vertexColors:true,roughness:.96});
+const textureLoader=new T.TextureLoader();
+const surfaceMaps=await Promise.all(['grass-Diffuse','rocky-Diffuse','grass-nor_gl'].map(n=>textureLoader.loadAsync('./textures/'+n+'.webp'))).catch(()=>null);
+if(surfaceMaps)surfaceMaps.forEach((t,i)=>{t.wrapS=t.wrapT=T.RepeatWrapping;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());if(i<2)t.colorSpace=T.SRGBColorSpace;});
+const landMat=new T.MeshStandardMaterial({vertexColors:true,roughness:.96});if(surfaceMaps){landMat.normalMap=surfaceMaps[2];landMat.normalScale.set(.32,.32);}
 // World-space mineral grain and damp heather keep detail steady when the view turns.
 landMat.onBeforeCompile=shader=>{
+ if(surfaceMaps){shader.uniforms.moorTexture={value:surfaceMaps[0]};shader.uniforms.rockTexture={value:surfaceMaps[1]};}
  shader.vertexShader='varying vec3 moorN;varying vec3 moorP;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nmoorP=position;moorN=normal;');
- shader.fragmentShader=`varying vec3 moorN;varying vec3 moorP;\nfloat grain(vec3 p){return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453); }
+ shader.fragmentShader=(surfaceMaps?'uniform sampler2D moorTexture;uniform sampler2D rockTexture;\n':'')+`varying vec3 moorN;varying vec3 moorP;\nfloat grain(vec3 p){return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453); }
 float field(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mix(grain(i),grain(i+vec3(1,0,0)),f.x),mix(grain(i+vec3(0,1,0)),grain(i+vec3(1,1,0)),f.x),f.y),mix(mix(grain(i+vec3(0,0,1)),grain(i+vec3(1,0,1)),f.x),mix(grain(i+vec3(0,1,1)),grain(i+vec3(1,1,1)),f.x),f.y),f.z); }\n`+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
  float grit=grain(floor(moorP*18.0));
  float moorPatch=sin(moorP.x*.38+sin(moorP.z*.2))*sin(moorP.z*.44);
@@ -18,9 +22,15 @@ float field(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mi
  diffuseColor.rgb=mix(diffuseColor.rgb,heath, .22*(1.-rockWeight));
  float strata=smoothstep(.25,.65,field(moorP*vec3(.8,.15,.8)));
  diffuseColor.rgb*=.82+patches*.3+grit*.07*(1.-smoothstep(20.,70.,length(cameraPosition-moorP)))-strata*.08*rockWeight;
+ ${surfaceMaps?`vec3 blend=pow(abs(normalize(moorN)),vec3(4.));blend/=blend.x+blend.y+blend.z;
+ vec3 rockSurface=texture2D(rockTexture,moorP.yz/90.).rgb*blend.x+texture2D(rockTexture,moorP.xz/90.).rgb*blend.y+texture2D(rockTexture,moorP.xy/90.).rgb*blend.z;
+ rockSurface=mix(rockSurface,vec3(dot(rockSurface,vec3(.2126,.7152,.0722))),.65)*.8;
+ vec3 moorSurface=texture2D(moorTexture,moorP.xz/15.).rgb;moorSurface=mix(moorSurface,moorSurface*vec3(.78,.94,.86),.6);
+ diffuseColor.rgb=mix(diffuseColor.rgb,mix(moorSurface,rockSurface,rockWeight),.72*(1.-smoothstep(20.,100.,length(cameraPosition-moorP))));`:''}
  `);
+ if(surfaceMaps)shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>','vec3 unperturbedNormal=normal;\n#include <normal_fragment_maps>\nnormal=normalize(mix(unperturbedNormal,normal,1.-smoothstep(20.,80.,length(cameraPosition-moorP))));');
 };
-function select(id){dirty=true;island=id;seaU.coast.value=coastTextures[id];seaU.span.value=worldSize(id);if(terrain){terrain.geometry.dispose();scene.remove(terrain)}if(props){props.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose()});scene.remove(props)}const geo=new T.PlaneGeometry(worldSize(id),worldSize(id),240,240);geo.rotateX(-Math.PI/2);const p=geo.attributes.position,colors=[];for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i);p.setY(i,heightAt(id,x,z))}geo.computeVertexNormals();const n=geo.attributes.normal;
+function select(id){dirty=true;island=id;if(surfaceMaps)surfaceMaps[2].repeat.set(worldSize(id)/15,worldSize(id)/15);seaU.coast.value=coastTextures[id];seaU.span.value=worldSize(id);if(terrain){terrain.geometry.dispose();scene.remove(terrain)}if(props){props.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose()});scene.remove(props)}const geo=new T.PlaneGeometry(worldSize(id),worldSize(id),240,240);geo.rotateX(-Math.PI/2);const p=geo.attributes.position,colors=[];for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i);p.setY(i,heightAt(id,x,z))}geo.computeVertexNormals();const n=geo.attributes.normal;
 for(let i=0;i<p.count;i++){const y=p.getY(i),slope=1-n.getY(i),x=p.getX(i),z=p.getZ(i),peat=new T.Color('#5c6446'),rock=new T.Color('#62655c'),grass=new T.Color('#526544');let c=peat.lerp(grass,.35+.2*Math.sin(x*.05+z*.06));c.lerp(rock,T.MathUtils.smoothstep(slope,.08,.36));if(y<2)c.lerp(new T.Color('#74766c'),.7);if(id===0&&y>400)c.lerp(rock,.7);if(id===1&&y>220)c.lerp(rock,.5);colors.push(c.r,c.g,c.b)}geo.setAttribute('color',new T.Float32BufferAttribute(colors,3));terrain=new T.Mesh(geo,landMat);scene.add(terrain);
  const points=[[18,2],[-47,141],[10,19],[85,-85],[10,10]][id].map(v=>v*worldSize(id)/400);camera.position.set(points[0],Math.max(.8,groundAt(id,...points))+1.8,points[1]);
  props=new T.Group();scene.add(props);let seed=937+id;const rnd=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);

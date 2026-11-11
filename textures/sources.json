@@ -1,0 +1,38 @@
+[
+  {
+    "source": {
+      "size": 666655,
+      "md5": "e920ce36afd0abff000b8366d3d768d3",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/aerial_grass_rock/aerial_grass_rock_diff_1k.jpg"
+    },
+    "adaptation": "resized to512x512 WebP quality85",
+    "output": "grass-Diffuse.webp"
+  },
+  {
+    "source": {
+      "size": 904956,
+      "md5": "c8aa4c4f09b113cc7edef89ddeaccad9",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/aerial_grass_rock/aerial_grass_rock_nor_gl_1k.jpg"
+    },
+    "adaptation": "resized to512x512 WebP quality85",
+    "output": "grass-nor_gl.webp"
+  },
+  {
+    "source": {
+      "size": 905179,
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rocky_terrain/rocky_terrain_diff_1k.jpg",
+      "md5": "306ae62c38ab1942a63e831a534875ab"
+    },
+    "adaptation": "resized to512x512 WebP quality85",
+    "output": "rocky-Diffuse.webp"
+  },
+  {
+    "source": {
+      "size": 1059194,
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rocky_terrain/rocky_terrain_nor_gl_1k.jpg",
+      "md5": "4d42a558317f1d52c9080c73372d125a"
+    },
+    "adaptation": "resized to512x512 WebP quality85",
+    "output": "rocky-nor_gl.webp"
+  }
+]
