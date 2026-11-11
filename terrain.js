@@ -1,5 +1,5 @@
 export const ISLANDS=['Rum','Eigg','Muck','Canna','Sanday'];
-const g=(x,z,cx,cz,rx,rz)=>Math.exp(-((x-cx)/rx)**2-((z-cz)/rz)**2);
+const g=(x,z,cx,cz,rx,rz)=>Math.exp(-(((x-cx)/rx)**2)-(((z-cz)/rz)**2));
 const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)};
 export function heightAt(id,x,z){
  const w=id===4?1.45:id===3?1.4:1,d=Math.hypot(x/(110*w),z/95),edge=1-smooth(.72,1.02,d);
