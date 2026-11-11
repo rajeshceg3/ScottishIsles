@@ -30,3 +30,11 @@ npm test
 ## Artistic additions are separate from source elevations
 
 Eigg's narrow Sgurr ridge is locally interpreted in `landmarks.js`, rather than left smoothed away by the composite data. Its profile and Muck's field wall are artistic additions, not survey data or a reconstructed actual field. See the attribution document for source references and precise limits. The checked-in raw arrays remain unchanged. `measuredHeightAt` reads the scaled source; `heightAt` includes the artistic ridge.
+
+## Vegetation/geology art candidate (November 11, 2026)
+
+The branch now keeps the existing CC0 moor/rock material visible at middle and far distances instead of fading to a smooth base color after 100 metres. Cliff exposure follows slope, with interpreted rock bands and a wet/shingle transition near sea level. These surface marks are artistic, not mapped geological layers. Native elevation arrays, 1.8x relief and the interpreted Sgurr overlay are unchanged.
+
+Foreground stones use three deformed archetypes, varied tints and a desaturated stone-interior crop of the credited Poly Haven rocky material. Grass uses crossed alpha-cutout cards with fine curved leaf silhouettes instead of broad triangular spikes. The deterministic atlas generator is in `scripts/generate-moor-tuft.py` (Pillow required); it is procedural artwork, not island photography. Clumps, color, height and placement vary in all directions. Low heather/sedge-like drifts are interpreted scenery, not a botanical survey.
+
+This is still a stylized, unmerged art candidate, not photorealism or art acceptance. Broad silhouettes remain generalized by the source resolution; the Sgurr profile is visibly interpreted. Grass-card repetition, low-detail wall stones, smooth terrain close to steep slopes, sparse middle-distance vegetation and schematic distant coastlines remain. Shore material changes do not reconstruct beaches or add surveyed coastal detail. The hand-drawn coastal-chart navigation and held-by-default weather behavior are preserved. No audio changes.

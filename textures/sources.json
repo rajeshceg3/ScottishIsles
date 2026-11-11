@@ -34,5 +34,23 @@
     },
     "adaptation": "resized to512x512 WebP quality85",
     "output": "rocky-nor_gl.webp"
+  },
+  {
+    "source": {
+      "size": 905179,
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rocky_terrain/rocky_terrain_diff_1k.jpg",
+      "md5": "306ae62c38ab1942a63e831a534875ab"
+    },
+    "adaptation": "Stone-interior crop (32,9)-(170,134), desaturated, gray-green remap and resized to256x256 WebP quality90",
+    "output": "stone-detail.webp"
+  },
+  {
+    "source": {
+      "kind": "original procedural artwork",
+      "generator": "scripts/generate-moor-tuft.py",
+      "seed": 131
+    },
+    "adaptation": "Antialiased curved grass-leaf silhouette atlas, 256px RGBA. Not a photograph or botanical record.",
+    "output": "moor-tuft.png"
   }
 ]

@@ -4,8 +4,9 @@ const canvas=document.querySelector('canvas'),renderer=new T.WebGLRenderer({canv
 const scene=new T.Scene();scene.background=new T.Color('#a5b3ae');scene.fog=new T.FogExp2('#a5b3ae',.00009);const camera=new T.PerspectiveCamera(60,innerWidth/innerHeight,.1,45000);camera.position.set(0,12,140);const hemi=new T.HemisphereLight('#d8e5df','#4a5141',2.1);scene.add(hemi);const sun=new T.DirectionalLight('#dae0cf',.9);sun.position.set(-80,110,70);scene.add(sun);
 let dirty=true,terrain,props,island=0,angle=0,pitch=-.08,moving=false,down=null,time=0,last=performance.now();
 const textureLoader=new T.TextureLoader();
-const surfaceMaps=await Promise.all(['grass-Diffuse','rocky-Diffuse','grass-nor_gl'].map(n=>textureLoader.loadAsync('./textures/'+n+'.webp'))).catch(()=>null);
-if(surfaceMaps)surfaceMaps.forEach((t,i)=>{t.wrapS=t.wrapT=T.RepeatWrapping;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());if(i<2)t.colorSpace=T.SRGBColorSpace;});
+const surfaceMaps=await Promise.all(['grass-Diffuse','rocky-Diffuse','grass-nor_gl','stone-detail'].map(n=>textureLoader.loadAsync('./textures/'+n+'.webp'))).catch(()=>null);
+if(surfaceMaps)surfaceMaps.forEach((t,i)=>{t.wrapS=t.wrapT=T.RepeatWrapping;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());if(i<2||i===3)t.colorSpace=T.SRGBColorSpace;});
+const tuftMap=await textureLoader.loadAsync('./textures/moor-tuft.png');tuftMap.colorSpace=T.SRGBColorSpace;
 const landMat=new T.MeshStandardMaterial({vertexColors:true,roughness:.96});if(surfaceMaps){landMat.normalMap=surfaceMaps[2];landMat.normalScale.set(.32,.32);}
 // World-space mineral grain and damp heather keep detail steady when the view turns.
 landMat.onBeforeCompile=shader=>{
@@ -17,16 +18,27 @@ float field(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mi
  float moorPatch=sin(moorP.x*.38+sin(moorP.z*.2))*sin(moorP.z*.44);
  float seams=pow(.5+.5*sin(moorP.y*2.4+sin(moorP.x*.37)*2.0+sin(moorP.z*.23)*3.0),20.0);
  float patches=field(moorP*.005)*.65+field(moorP*.025)*.25+field(moorP*.14)*.10;
- float rockWeight=smoothstep(.12,.55,1.-abs(normalize(moorN).y));
+ float rockWeight=smoothstep(.07,.45,1.-abs(normalize(moorN).y));
  vec3 heath=mix(vec3(.36,.30,.25),vec3(.52,.55,.32),smoothstep(.25,.72,patches));
- diffuseColor.rgb=mix(diffuseColor.rgb,heath, .22*(1.-rockWeight));
+ diffuseColor.rgb=mix(diffuseColor.rgb,heath, .40*(1.-rockWeight));
  float strata=smoothstep(.25,.65,field(moorP*vec3(.8,.15,.8)));
- diffuseColor.rgb*=.82+patches*.3+grit*.07*(1.-smoothstep(20.,70.,length(cameraPosition-moorP)))-strata*.08*rockWeight;
+ diffuseColor.rgb*=.66+patches*.65+grit*.07*(1.-smoothstep(20.,70.,length(cameraPosition-moorP)))-strata*.08*rockWeight;
  ${surfaceMaps?`vec3 blend=pow(abs(normalize(moorN)),vec3(4.));blend/=blend.x+blend.y+blend.z;
  vec3 rockSurface=texture2D(rockTexture,moorP.yz/90.).rgb*blend.x+texture2D(rockTexture,moorP.xz/90.).rgb*blend.y+texture2D(rockTexture,moorP.xy/90.).rgb*blend.z;
  rockSurface=mix(rockSurface,vec3(dot(rockSurface,vec3(.2126,.7152,.0722))),.65)*.8;
  vec3 moorSurface=texture2D(moorTexture,moorP.xz/15.).rgb;moorSurface=mix(moorSurface,moorSurface*vec3(.78,.94,.86),.6);
- diffuseColor.rgb=mix(diffuseColor.rgb,mix(moorSurface,rockSurface,rockWeight),.72*(1.-smoothstep(20.,100.,length(cameraPosition-moorP))));`:''}
+ float range=length(cameraPosition-moorP);
+ vec3 broadMoor=texture2D(moorTexture,moorP.xz/240.).rgb;
+ broadMoor=mix(broadMoor,vec3(dot(broadMoor,vec3(.2126,.7152,.0722))),.25);
+ moorSurface=mix(moorSurface,broadMoor,smoothstep(40.,240.,range)*.6);
+ float ledges=smoothstep(.64,.87,field(moorP*vec3(.008,.045,.008)));
+ rockSurface*=.76+ledges*.32;
+ diffuseColor.rgb=mix(diffuseColor.rgb,mix(moorSurface,rockSurface,rockWeight),.64);
+ diffuseColor.rgb*=1.-rockWeight*ledges*.15;
+ float wet=1.-smoothstep(.3,5.,moorP.y+field(moorP*.3)*1.4);
+ diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*vec3(.52,.58,.59),wet*.75);
+ float shingle=(1.-smoothstep(3.,11.,moorP.y))*smoothstep(.5,3.,moorP.y);
+ diffuseColor.rgb=mix(diffuseColor.rgb,rockSurface*.72,shingle*.7);`:''}
  `);
  if(surfaceMaps)shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>','vec3 unperturbedNormal=normal;\n#include <normal_fragment_maps>\nnormal=normalize(mix(unperturbedNormal,normal,1.-smoothstep(20.,80.,length(cameraPosition-moorP))));');
 };
@@ -34,12 +46,20 @@ function select(id){dirty=true;island=id;if(surfaceMaps)surfaceMaps[2].repeat.se
 for(let i=0;i<p.count;i++){const y=p.getY(i),slope=1-n.getY(i),x=p.getX(i),z=p.getZ(i),peat=new T.Color('#5c6446'),rock=new T.Color('#62655c'),grass=new T.Color('#526544');let c=peat.lerp(grass,.35+.2*Math.sin(x*.05+z*.06));c.lerp(rock,T.MathUtils.smoothstep(slope,.08,.36));if(y<2)c.lerp(new T.Color('#74766c'),.7);if(id===0&&y>400)c.lerp(rock,.7);if(id===1&&y>220)c.lerp(rock,.5);colors.push(c.r,c.g,c.b)}geo.setAttribute('color',new T.Float32BufferAttribute(colors,3));terrain=new T.Mesh(geo,landMat);scene.add(terrain);
  const points=[[18,2],[10,96],[10,19],[85,-85],[120,60]][id].map(v=>v*worldSize(id)/400);camera.position.set(points[0],Math.max(.8,groundAt(id,...points))+1.8,points[1]);
  props=new T.Group();scene.add(props);let seed=937+id;const rnd=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
- const rockGeo=new T.SphereGeometry(1,8,6),rPos=rockGeo.attributes.position;for(let j=0;j<rPos.count;j++){const x=rPos.getX(j),y=rPos.getY(j),z=rPos.getZ(j),k=.88+.14*Math.sin(x*3.2+z*2.4)+.08*Math.sin(y*6.1-x*1.5);rPos.setXYZ(j,x*k,y*(.9+.08*Math.cos(x*3+z*4)),z*k)}rockGeo.computeVertexNormals();
- const rocks=new T.InstancedMesh(rockGeo,new T.MeshStandardMaterial({color:'#656b5d',roughness:.82,map:null}),260),dummy=new T.Object3D();
- for(let j=0;j<260;j++){let x,z,h,attempt=0;do{attempt++;x=points[0]+(rnd()-.5)*(j<180?130:worldSize(id)*.7);z=points[1]+(rnd()-.5)*(j<180?130:worldSize(id)*.7);h=groundAt(id,x,z)}while((h<.1||Math.hypot(x-points[0],z-points[1])<3.5)&&attempt<80);const scale=h<.1||Math.hypot(x-points[0],z-points[1])<3.5?0:.25+rnd()*1.0;dummy.position.set(x,h+scale*.15,z);dummy.rotation.set(rnd()*.4,rnd()*6.28,rnd()*.3);dummy.scale.set(scale*(.8+rnd()),scale*.6,scale);dummy.updateMatrix();rocks.setMatrixAt(j,dummy.matrix)}rocks.computeBoundingSphere();props.add(rocks);
- const blade=new T.BufferGeometry(),blades=[];for(let b=0;b<3;b++){const a=b*2.399,c=Math.cos(a),s=Math.sin(a),h=.22+b*.055,w=.026;const v=(x,y,z)=>[x*c-z*s,y,x*s+z*c];const left=v(-w,0,0),right=v(w,0,0),midL=v(-w*.7,h*.5,.045),midR=v(w*.7,h*.5,.045),tip=v(0,h,.15);blades.push(...left,...right,...midL,...right,...midR,...midL,...midL,...midR,...tip)}blade.setAttribute('position',new T.Float32BufferAttribute(blades,3));blade.computeVertexNormals();
- const grass=new T.InstancedMesh(blade,new T.MeshStandardMaterial({color:'#576b45',roughness:1,side:T.DoubleSide}),6000);
- for(let j=0;j<6000;j++){const a=rnd()*6.28,r=Math.sqrt(rnd())*48,x=points[0]+Math.cos(a)*r,z=points[1]+Math.sin(a)*r,h=groundAt(id,x,z);dummy.position.set(x,h-.03,z);dummy.rotation.set(0,rnd()*6.28,0);const scale=.6+rnd()*.8;dummy.scale.setScalar(h>.3?scale:0);dummy.updateMatrix();grass.setMatrixAt(j,dummy.matrix)}grass.computeBoundingSphere();props.add(grass);
+ // Three interpreted stone archetypes: boulder, slab and cobble, tinted granite to basalt.
+ const rockPalette=['#c4c7b9','#91988e','#a6aa9b','#d0cfb6','#b7b19e'].map(hx=>new T.Color(hx));
+ const archetypes=[0,1,2].map(a=>{const g=new T.SphereGeometry(1,12,6),rp=g.attributes.position;for(let j=0;j<rp.count;j++){const x=rp.getX(j),y=rp.getY(j),z=rp.getZ(j),k=.85+.17*Math.sin(x*(3.2+a*1.1)+z*(2.4+a*.8))+.09*Math.sin(y*(6.1+a*1.7)-x*1.5)+.05*Math.sin((x-z)*(8+a*3)+y*5);rp.setXYZ(j,x*k,y*(.9+.08*Math.cos(x*(3+a)+z*4))*(a===2?.6:a===1?.8:1),z*k)}g.computeVertexNormals();const cs=[];for(let j=0;j<rp.count;j++){const x=rp.getX(j),y=rp.getY(j),z=rp.getZ(j),lichen=Math.max(0,Math.sin(x*11+z*7)*Math.sin(y*13-x*8));const c=new T.Color('#ffffff').lerp(new T.Color('#b6bc91'),lichen*.32);cs.push(c.r,c.g,c.b)}g.setAttribute('color',new T.Float32BufferAttribute(cs,3));return g});
+ const dummy=new T.Object3D(),tint=new T.Color();
+ for(let a=0;a<3;a++){const rocks=new T.InstancedMesh(archetypes[a],new T.MeshStandardMaterial({color:'#ffffff',roughness:.96,map:surfaceMaps?.[3]||null,vertexColors:true}),90);
+ for(let j=0;j<90;j++){let x,z,h,attempt=0;do{attempt++;x=points[0]+(rnd()-.5)*(j<65?130:worldSize(id)*.85);z=points[1]+(rnd()-.5)*(j<65?130:worldSize(id)*.85);h=groundAt(id,x,z)}while((h<.1||Math.hypot(x-points[0],z-points[1])<3.5)&&attempt<80);const scale=h<.1||Math.hypot(x-points[0],z-points[1])<3.5?0:.25+rnd()*1.05;dummy.position.set(x,h+scale*.15,z);dummy.rotation.set(rnd()*.5,rnd()*6.28,rnd()*.35);dummy.scale.set(scale*(.8+rnd()*.9),scale*(.5+rnd()*.35),scale);dummy.updateMatrix();rocks.setMatrixAt(j,dummy.matrix);tint.copy(rockPalette[(rnd()*rockPalette.length)|0]).offsetHSL(0,(rnd()-.5)*.04,(rnd()-.5)*.06);rocks.setColorAt(j,tint)}rocks.computeBoundingSphere();props.add(rocks)}
+ // Crossed alpha-cutout cards give each moor tuft dozens of fine, curved leaves.
+ const blade=new T.BufferGeometry(),blades=[],uvs=[];for(let b=0;b<3;b++){const a=b*2.094,c=Math.cos(a),s=Math.sin(a),w=.28,h=.46;const v=(x,y)=>[x*c,y,x*s];blades.push(...v(-w,0),...v(w,0),...v(-w,h),...v(w,0),...v(w,h),...v(-w,h));uvs.push(0,0,1,0,0,1,1,0,1,1,0,1)}blade.setAttribute('position',new T.Float32BufferAttribute(blades,3));blade.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));blade.computeVertexNormals();
+ // Moor grass in clumps near the vantage, taller drifts across the far side.
+ const grass=new T.InstancedMesh(blade,new T.MeshStandardMaterial({color:'#ffffff',roughness:1,side:T.DoubleSide,map:tuftMap,alphaTest:.45}),6000),moorTones=['#b9bd8e','#c1c396','#c9bf8e','#a8b383','#c5c79c'].map(hx=>new T.Color(hx));
+ for(let j=0;j<6000;j++){const far=j>=4400;let x,z,h,tries=0;do{const a=rnd()*6.28,r=far?30+Math.sqrt(rnd())*85:Math.sqrt(rnd())*30;x=points[0]+Math.cos(a)*r;z=points[1]+Math.sin(a)*r;h=groundAt(id,x,z);tries++}while(!far&&tries<5&&Math.sin(x*.31+z*.13)*Math.sin(z*.27-x*.09)+Math.sin((x+z)*.07)<-.9);dummy.position.set(x,h-.03,z);dummy.rotation.set((rnd()-.5)*.24,rnd()*6.28,(rnd()-.5)*.24);const scale=(.55+rnd()*.95)*(far?1.7+rnd()*.9:1);dummy.scale.setScalar(h>.3?scale:0);dummy.updateMatrix();grass.setMatrixAt(j,dummy.matrix);tint.copy(moorTones[(rnd()*moorTones.length)|0]).offsetHSL((rnd()-.5)*.02,(rnd()-.5)*.06,(rnd()-.5)*.07);grass.setColorAt(j,tint)}grass.computeBoundingSphere();props.add(grass);
+ // Interpreted low heather/sedge drifts, not a botanical survey.
+ const scrub=new T.InstancedMesh(blade.clone(),new T.MeshStandardMaterial({color:'#ffffff',roughness:1,side:T.DoubleSide,map:tuftMap,alphaTest:.45}),500),scrubTones=['#c3b58c','#b0ba87','#b9a0a2','#abb693'].map(hx=>new T.Color(hx));
+ for(let j=0;j<500;j++){const a=rnd()*6.28,r=8+Math.sqrt(rnd())*60,x=points[0]+Math.cos(a)*r,z=points[1]+Math.sin(a)*r,h=groundAt(id,x,z);dummy.position.set(x,h-.02,z);dummy.rotation.set(0,rnd()*6.28,0);dummy.scale.set(1.6+rnd(),h>.8?.75+rnd()*.6:0,1.6+rnd());dummy.updateMatrix();scrub.setMatrixAt(j,dummy.matrix);scrub.setColorAt(j,scrubTones[(rnd()*scrubTones.length)|0])}scrub.computeBoundingSphere();props.add(scrub);
  // An interpreted field boundary gives the farmed island a human scale.
  // It is not a reconstruction of a named wall or surveyed field.
  if(id===2){
@@ -57,8 +77,8 @@ const seaU={time:{value:0},coast:{value:coastTextures[0]},span:{value:worldSize(
 const sea=new T.Mesh(new T.PlaneGeometry(60000,60000),new T.ShaderMaterial({uniforms:seaU,
 vertexShader:'varying vec3 w;void main(){w=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
 fragmentShader:`varying vec3 w;uniform float time;uniform sampler2D coast;uniform float span;
-void main(){vec2 p=vec2(w.x,-w.y);float a=sin(p.x*.43+p.y*.19+sin(p.y*.17)*1.8+time*.8);float b=sin(p.x*.16+p.y*.37+sin(p.x*.13)*.7+time*.58);float lines=pow(.5+.5*a,12.)*.35+pow(.5+.5*b,9.)*.15;vec3 c=mix(vec3(.16,.25,.26),vec3(.31,.42,.41),.5+lines);
-vec2 uv=p/span+.5;vec2 encoded=texture2D(coast,uv).rg;float h=(encoded.r*65280.+encoded.g*255.)/4.-1000.;float edge=(1.-smoothstep(-2.8,-.1,h))*smoothstep(-4.,-2.,h);float foam=edge*(.35+.4*pow(.5+.5*sin(h*8.-time*1.4+sin(p.x*.7+p.y*.9)),3.));if(uv.x>0.&&uv.x<1.&&uv.y>0.&&uv.y<1.)c=mix(c,vec3(.68,.75,.69),foam);gl_FragColor=vec4(c,1.);
+void main(){vec2 p=vec2(w.x,-w.y);float a=sin(p.x*.43+p.y*.19+sin(p.y*.17)*1.8+time*.8);float b=sin(p.x*.16+p.y*.37+sin(p.x*.13)*.7+time*.58);float lines=(pow(.5+.5*a,12.)*.35+pow(.5+.5*b,9.)*.15)*(1.-smoothstep(300.,5000.,length(cameraPosition.xz-p)));vec3 c=mix(vec3(.16,.25,.26),vec3(.31,.42,.41),.5+lines);
+vec2 uv=p/span+.5;vec2 encoded=texture2D(coast,uv).rg;float h=(encoded.r*65280.+encoded.g*255.)/4.-1000.;float edge=(1.-smoothstep(-1.2,.5,h))*smoothstep(-7.,-3.,h);float ripple=.5+.5*sin(h*3.4-time*1.4+sin(p.x*.15+p.y*.2)*1.3);float foam=edge*(.20+.45*pow(ripple,4.));c=mix(c,vec3(.23,.34,.32),smoothstep(-15.,-2.,h)*.4);if(uv.x>0.&&uv.x<1.&&uv.y>0.&&uv.y<1.)c=mix(c,vec3(.68,.75,.69),foam);gl_FragColor=vec4(c,1.);
 #include <colorspace_fragment>
 }` }));sea.rotation.x=-Math.PI/2;sea.position.y=-.12;scene.add(sea);
 // Short slanted rain streaks, held exactly still until weather is enabled.
